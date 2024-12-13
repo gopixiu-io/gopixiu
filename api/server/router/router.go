@@ -17,6 +17,7 @@ limitations under the License.
 package router
 
 import (
+	"embed"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -41,6 +42,9 @@ import (
 
 type RegisterFunc func(o *options.Options)
 
+//go:embed static
+var EmbedFS embed.FS
+
 func InstallRouters(o *options.Options) {
 	fs := []RegisterFunc{
 		middleware.InstallMiddlewares,
@@ -54,12 +58,9 @@ func InstallRouters(o *options.Options) {
 	}
 
 	install(o, fs...)
-
-	// StaticFiles 目录不为空时，启用前端集成
-	if len(o.ComponentConfig.Default.StaticFiles) != 0 {
-		o.HttpEngine.Use(static.Serve("/", static.LocalFile(o.ComponentConfig.Default.StaticFiles, true)))
-	}
-
+	// StaticFiles 目录为空不影响 api 调用
+	// 运行过程中 StaticFiles 添加上了，前端页面自动生效
+	o.HttpEngine.GET("/", static.ServeEmbed("static", EmbedFS))
 	// 启动健康检查
 	o.HttpEngine.GET("/healthz", func(c *gin.Context) { c.String(http.StatusOK, "ok") })
 	// 启动 APIs 服务
